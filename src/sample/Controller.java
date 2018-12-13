@@ -2,14 +2,17 @@ package sample;
 
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
+import javafx.event.Event;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import org.opencv.core.Mat;
-import org.opencv.core.MatOfByte;
+import org.opencv.core.*;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.objdetect.CascadeClassifier;
+import org.opencv.objdetect.Objdetect;
 import org.opencv.videoio.VideoCapture;
 
 import java.io.ByteArrayInputStream;
@@ -20,23 +23,48 @@ import java.util.concurrent.TimeUnit;
 public class Controller {
 
     @FXML
-    private Button button;
+    private Button start_btn;
     @FXML
     private ImageView currentFrame;
+    @FXML
+    private CheckBox haarClassifier;
+    @FXML
+    private CheckBox lbpClassifier;
 
-    private VideoCapture capture = new VideoCapture();
-    //timer for acquiring frames
+    // object used to capturing the video
+    private VideoCapture capture;
+    // timer for acquiring frames
     private ScheduledExecutorService timer;
-
     private boolean cameraActive = false;
     // here can be various values, in my example '2' worked
     private static int cameraId = 2;
+
+    // face cascade classifier
+    private CascadeClassifier faceCascade;
+    private int absoluteFaceSize;
+
+
+    // initializing method
+    void init(){
+        this.capture = new VideoCapture();
+        this.faceCascade = new CascadeClassifier();
+        this.absoluteFaceSize = 0;
+
+        // probably not needed?
+//        currentFrame.setFitWidth(600);
+//        currentFrame.setPreserveRatio(true);
+    }
 
     @FXML
     protected void startCamera(ActionEvent event) {
         // start recording when camera is off
         if (!cameraActive) {
+            // start video capture
             this.capture.open(cameraId);
+
+            // one cannot change checkboxes when capture is in progress
+            this.haarClassifier.setDisable(true);
+            this.lbpClassifier.setDisable(true);
 
             if (this.capture.isOpened()) {
                 this.cameraActive = true;
@@ -66,13 +94,19 @@ public class Controller {
 
                 this.timer = Executors.newSingleThreadScheduledExecutor();
                 this.timer.scheduleAtFixedRate(frameGrabber, 0, 33, TimeUnit.MILLISECONDS);
+
+                // update text of the button
+                this.start_btn.setText("Stop Camera");
             }
             else
                 System.err.println("Impossible to open the camera connection");
         }
         else{
             this.cameraActive = false;
-            this.button.setText("Start Camera");
+            this.start_btn.setText("Start Camera");
+            // enable checkboxes of classifiers
+            this.lbpClassifier.setDisable(false);
+            this.haarClassifier.setDisable(false);
 
             this.stopAcquisition();
         }
@@ -88,8 +122,7 @@ public class Controller {
 
                 // if the frame is not empty make it grey!
                 if (!frame.empty()){
-                    // arguments go like this: actual, destination, transformation
-                    Imgproc.cvtColor(frame, frame, Imgproc.COLOR_BGR2GRAY);
+                    this.detectAndDisplay(frame);
                 }
             }
             catch (Exception e){
@@ -98,6 +131,62 @@ public class Controller {
         }
         return frame;
     }
+
+    // method that detect face in the frame
+    private void detectAndDisplay(Mat frame){
+        MatOfRect faces = new MatOfRect();
+        Mat grayFrame = new Mat();
+
+        // arguments go like this: actual, destination, transformation
+        Imgproc.cvtColor(frame, grayFrame, Imgproc.COLOR_BGR2GRAY);
+        // this extends pixels values, so in a result give a better contrast of the image
+        Imgproc.equalizeHist(grayFrame, grayFrame);
+
+        // compute minimum face size (20% of the frame height)
+        if (this.absoluteFaceSize == 0){
+            int height = grayFrame.rows();
+            if (Math.round(height * 0.2f) > 0)
+                this.absoluteFaceSize = Math.round(height * 0.2f);
+        }
+
+        // detect faces
+        this.faceCascade.detectMultiScale(grayFrame, faces, 1.1, 2, Objdetect.CASCADE_SCALE_IMAGE,
+                new Size(this.absoluteFaceSize, this.absoluteFaceSize), new Size());
+
+        // drawing each face rectangle
+        Rect[] facesArray = faces.toArray();
+        for (Rect rect : facesArray){
+            // tl - top left point, br - bottom right point of the rectangle
+            Imgproc.rectangle(frame, rect.tl(), rect.br(), new Scalar(0, 255, 0), 3);
+        }
+    }
+
+    // Action triggered by the haar classifier checkbox. Loads set used to frontal face detection
+    @FXML
+    void haarSelected(Event e){
+        if (this.haarClassifier.isSelected())
+            this.haarClassifier.setSelected(false);
+
+        this.checkboxSelection("resources/haarcascades/haarcascade_frontalface_alt.xml");
+    }
+
+    // Action triggered by the LBP classifier checkbox
+    @FXML
+    void lbpSelected(Event e){
+        if (this.lbpClassifier.isSelected())
+            this.lbpClassifier.setSelected(false);
+
+        this.checkboxSelection("resources/lbpcascades/lbpcascade_frontalface.xml");
+    }
+
+    // to load classifier trained set
+    private void checkboxSelection(String classifierPath){
+        this.faceCascade.load(classifierPath);
+
+        // now video capture can start
+        this.start_btn.setDisable(false);
+    }
+
 
     private void stopAcquisition()
     {

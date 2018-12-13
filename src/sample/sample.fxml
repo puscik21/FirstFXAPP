@@ -12,7 +12,7 @@
 
 <BorderPane prefHeight="600.0" prefWidth="800.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="sample.Controller">
    <bottom>
-      <Button fx:id="start_btn" mnemonicParsing="false" onAction="#startCamera" text="Start Camera" BorderPane.alignment="CENTER">
+      <Button fx:id="start_btn" disable="true" mnemonicParsing="false" onAction="#startCamera" text="Start Camera" BorderPane.alignment="CENTER">
          <BorderPane.margin>
             <Insets bottom="20.0" />
          </BorderPane.margin>
@@ -21,4 +21,26 @@
    <center>
       <ImageView fx:id="currentFrame" fitHeight="400.0" fitWidth="400.0" pickOnBounds="true" preserveRatio="true" BorderPane.alignment="CENTER" />
    </center>
+   <top>
+      <VBox prefHeight="100.0" prefWidth="800.0" BorderPane.alignment="CENTER">
+         <children>
+            <HBox prefHeight="100.0" prefWidth="769.0">
+               <children>
+                  <CheckBox fx:id="haarClassifier" mnemonicParsing="false" onAction="#haarSelected" text="Haar Classifier">
+                     <HBox.margin>
+                        <Insets left="200.0" top="40.0" />
+                     </HBox.margin>
+                  </CheckBox>
+                  <Separator prefWidth="200.0" />
+                  <CheckBox fx:id="lbpClassifier" mnemonicParsing="false" onAction="#lbpSelected" text="LBP Classifier">
+                     <HBox.margin>
+                        <Insets top="40.0" />
+                     </HBox.margin>
+                  </CheckBox>
+               </children>
+            </HBox>
+            <Separator prefWidth="200.0" />
+         </children>
+      </VBox>
+   </top>
 </BorderPane>
